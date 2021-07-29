@@ -1,0 +1,74 @@
+{
+  "display": {
+    "title": "NFT gallery of caktux",
+    "favicon": "favicon_asset"
+  },
+  "contact": {
+    "name": "caktux",
+    "email": ""
+  },
+  "owner": "0x378BCce7235D53BBc3774BFf8559191F06E6818E",
+  "scene": {
+    "parcels": [
+      "-128,32",
+      "-127,32",
+      "-126,32",
+      "-125,32",
+      "-124,32",
+      "-123,32",
+      "-128,31",
+      "-127,31",
+      "-126,31",
+      "-125,31",
+      "-124,31",
+      "-123,31",
+      "-128,30",
+      "-127,30",
+      "-126,30",
+      "-125,30",
+      "-124,30",
+      "-123,30",
+      "-128,29",
+      "-127,29",
+      "-126,29",
+      "-125,29",
+      "-124,29",
+      "-123,29",
+      "-128,28",
+      "-127,28",
+      "-126,28",
+      "-125,28",
+      "-124,28",
+      "-123,28"
+    ],
+    "base": "-128,32"
+  },
+  "communications": {
+    "type": "webrtc",
+    "signalling": "https://signalling-01.decentraland.org"
+  },
+  "policy": {
+    "contentRating": "E",
+    "fly": true,
+    "voiceEnabled": true,
+    "blacklist": []
+  },
+  "main": "bin/game.js",
+  "tags": [],
+  "spawnPoints": [
+    {
+      "name": "spawn1",
+      "default": true,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "cameraTarget": {
+        "x": 8,
+        "y": 1,
+        "z": 8
+      }
+    }
+  ]
+}
