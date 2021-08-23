@@ -1,7 +1,6 @@
 # NFT Gallery
 
-The caktux NFT gallery in Decentraland
-s
+The NFT gallery of caktux in Decentraland
 
 ## Try it out
 

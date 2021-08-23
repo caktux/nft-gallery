@@ -1,7 +1,7 @@
 {
   "name": "caktux-nft-gallery",
   "version": "1.0.0",
-  "description": "The caktux NFT gallery in Decentraland",
+  "description": "NFT gallery in Decentraland",
   "scripts": {
     "start": "dcl start",
     "build": "build-ecs",
@@ -11,9 +11,9 @@
     "ecs:install-next": "npm install --save-dev decentraland-ecs@next"
   },
   "devDependencies": {
-    "decentraland-ecs": "latest"
+    "decentraland-ecs": "^6.6.5"
   },
   "dependencies": {
-    "decentraland-ecs-utils": "^1.1.4"
+    "decentraland-ecs-utils": "^1.5.2"
   }
 }

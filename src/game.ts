@@ -1,6 +1,7 @@
-import utils from "../node_modules/decentraland-ecs-utils/index"
-import { SmokeSource, ThrowSmoke } from "./modules/smokeSource";
-import { SmokeSystem } from "./modules/smoke";
+import utils from '../node_modules/decentraland-ecs-utils/index'
+import { movePlayerTo } from '@decentraland/RestrictedActions'
+import { getUserPublicKey } from '@decentraland/Identity'
+import { getParcel } from '@decentraland/ParcelIdentity'
 
 const nftsUrl = 'https://api.opensea.io/api/v1/assets?' +
                 'owner=0x378BCce7235D53BBc3774BFf8559191F06E6818E&' +
@@ -22,30 +23,221 @@ const nftsUrl = 'https://api.opensea.io/api/v1/assets?' +
                 'asset_contract_addresses=0xd1405914eed5c358c9d8ab150f83bf7ffb7939f7&' + // Mrs Ethereum
                 'asset_contract_addresses=0x1919f156157924389491002127049abd69a808b5&' + // Surrogates
                 'asset_contract_addresses=0x3725ca6034bcdbc3c9ada649d49df68527661175&' + // 1559
+                'asset_contract_addresses=0xabEFBc9fD2F806065b4f3C237d4b59D9A97Bcac7&' + // Zora
                 'order_by="sale_date"&order_direction="desc"&'
 
 let nfts = []
 let data = []
 
+let total = 260  // Set the total for the first tower to split the collection
+let offset_start = 0
 let offset = 0
 let split = 20
-let total = 800
-let per_rotation = 360 / (split * Math.PI)
+let radius = 24
+let per_rotation = 360 / split
 let pages = total / split
-let p = -1
+let p = 0
 let path = []
 let done = false
 
-let showNFTs = function() {
-  for (let i = 0; i < nfts.length; i++) {
-    engine.addEntity(nfts[i])
+const sceneMessageBus = new MessageBus()
+
+const green = new Material()
+green.albedoColor = Color3.Green()
+green.metallic = 0.8
+green.roughness = 0.2
+
+let base_parcel = ''
+executeTask(async () => {
+  const parcel = await getParcel()
+  base_parcel = parcel.land.sceneJsonData.scene.base
+  if (base_parcel === '-123,32') {
+    offset_start = total
+    total = 3000
   }
+})
+
+let publicKey = null
+let isInCollection = false
+const publicKeyRequest = executeTask(async () => {
+  publicKey = await getUserPublicKey()
+})
+
+let showNFTs = function() {
+  for (let i = 0; i < nfts.length; i++)
+    engine.addEntity(nfts[i])
 }
 
+
+// Ground
+const ground = new Entity()
+ground.addComponent(new Transform({
+  position: new Vector3(40, 0, -radius),
+  scale: new Vector3(5, 1, 5)
+}))
+ground.addComponent(new GLTFShape('models/ground.glb'))
+engine.addEntity(ground)
+
+
+// Add fireplaces
+let fire = new Entity()
+fire.addComponent(new GLTFShape("models/Fireplace.glb"))
+fire.addComponent(new Transform({
+  position: new Vector3(radius * 2, 0.05, -radius)
+}))
+engine.addEntity(fire)
+
+
+// Add music
+const music = new Entity()
+music.addComponent(new Transform({
+  position: new Vector3(radius * 2, 0.1, -radius)
+}))
+
+const source = new AudioStream('https://stream.radio.caktux.ca/radio.mp3')
+music.addComponent(source)
+source.volume = 0.12
+
+
+// Floating platforms
+const platforms = new Entity()
+let last_platform = Date.now()
+let totalPlatforms = 60
+let platform_list = {}
+let t = 0
+
+sceneMessageBus.on("new_visitor", (data) => {
+  let positions = []
+  for (let id in platform_list) {
+    let platform = platform_list[id]
+    let currentIndex = platform.getComponent(utils.FollowCurvedPathComponent).currentIndex
+    positions.push({
+      id: id,
+      position: platform.getComponent(Transform).position,
+      currentIndex: currentIndex
+    })
+  }
+  sceneMessageBus.emit("platforms_share", { positions: positions })
+})
+
+sceneMessageBus.on("platforms_share", (data) => {
+  let length = data.positions.length
+  if (length < 2)
+    return
+  // log(`Got ${length} shared platforms`)
+  if (t < length) {
+    for (let i = 0; i < length; i++) {
+      let platform = data.positions[i]
+      newPlatform(platform.id, true, platform.position, platform.currentIndex)
+    }
+  }
+})
+
+sceneMessageBus.on("platform_new", (data) => {
+  if (t >= totalPlatforms ||
+      (t > 0 && platform_list[last_platform] && platform_list[last_platform].getComponent(Transform).position.x < 65))
+    return
+  newPlatform(data.id, true, {}, 0)
+})
+
+sceneMessageBus.on("platform_paused", (data) => {
+  // log(platform_list[data.id].getComponent(Transform).position)
+  platform_list[data.id].last_speed = data.speed
+  let curve = platform_list[data.id].getComponent(utils.FollowCurvedPathComponent)
+  curve.speed[curve.currentIndex] = 0
+  platform_list[data.id].getComponent(Transform).position.set(data.position)
+  platform_list[data.id].getComponent(Transform).scale.set(3, 0.2, 3)
+})
+
+sceneMessageBus.on("platform_unpaused", (data) => {
+  let curve = platform_list[data.id].getComponent(utils.FollowCurvedPathComponent)
+  platform_list[data.id].getComponent(Transform).scale.set(3, 0.1, 3)
+  curve.speed[curve.currentIndex] = platform_list[data.id].last_speed
+})
+
+let newPlatform = function(id: number, followPath: boolean, position: Object, index: number) {
+  last_platform = id
+  let last_speed = 0
+
+  let start_position = path[0]
+  if (followPath && position !== {})
+    start_position = new Vector3(position['x'], position['y'], position['z'])
+
+  let platform = new Entity()
+
+  platform.addComponent(new CylinderShape())
+  platform.addComponent(new Transform({
+    scale: new Vector3(3, 0.1, 3),
+    position: start_position
+  }))
+
+  if (isInCollection === true && followPath === false)
+    platform.addComponent(green)
+
+  let followCurve = function() {
+    platform.addComponent(new utils.FollowCurvedPathComponent(path, 900, 30, false, true, () => {
+      followCurve()
+    }))
+    if (index !== 0) {
+      let curves = []
+      curves.push(platform.getComponent(utils.FollowCurvedPathComponent))
+      curves[0].currentIndex = index
+    }
+  }
+
+  // Move along the path and come back
+  if (followPath) {
+    followCurve()
+    platform.addComponent(
+      new OnPointerDown((e) => {
+        // log(platform.getComponent(utils.FollowCurvedPathComponent))
+        let curves = []  // Dirty hack to silence errors about private variables
+        curves.push(platform.getComponent(utils.FollowCurvedPathComponent))
+        let position = platform.getComponent(Transform).position
+        let speed = curves[0].speed[curves[0].currentIndex]
+        if (speed !== 0)
+          sceneMessageBus.emit("platform_paused", { id: id, speed: speed, position: position })
+        else
+          sceneMessageBus.emit("platform_unpaused", { id: id })
+      },
+      { hoverText: "Pause" })
+    )
+  } else {
+    platform.addComponent(
+      new OnPointerDown((e) => {
+        movePlayerTo({
+          x: path[path.length - 1].x,
+          y: path[path.length - 1].y,
+          z: path[path.length - 1].z
+        }, {
+          x: path[path.length - 2].x,
+          y: path[path.length - 2].y,
+          z: path[path.length - 2].z
+        })
+      },
+      { hoverText: "Teleport to top" })
+    )
+  }
+
+  if (followPath === true)
+    platform_list[id] = platform
+
+  engine.addEntity(platform)
+
+  t += 1
+}
+
+
 log("Getting NFTs")
+let fetching = false
 async function loadNFTs() {
   try {
-    p = p + 1
+    if (fetching === true)
+      return
+    fetching = true
+
+    if (offset_start > 0 && offset === 0)
+      offset = offset_start
 
     let response = await fetch(nftsUrl + `limit=${split}&offset=${offset}`)
     let json = await response.json()
@@ -53,143 +245,102 @@ async function loadNFTs() {
     data = json['assets']
     log(`Got ${data.length} NFTs`)
 
-    if (data.length === 0) {
-      log('No more NFTs to load')
+    if (data.length === 0 || p === pages - 1) {
       done = true
+      newPlatform(Date.now() - 10000, false, {}, 0)
       showNFTs()
+
+      engine.addEntity(music)
+
+      platforms.addComponent(
+        new utils.Interval(1000, () => {
+          if (t < totalPlatforms &&
+              last_platform + per_rotation * 1000 < Date.now())
+            sceneMessageBus.emit("platform_new", {id: Date.now()})
+        })
+      )
+      sceneMessageBus.emit("new_visitor", {})
       return
     }
 
     for (let i = 0; i < data.length; i++) {
+      // Skip animations
+      // if (data[i]['animation_url'] !== null && data[i]['animation_original_url'] !== null) {
+      //   log(`Skipped animation "${data[i]['name']}" from ${data[i]['asset_contract']['name']}
+      //        with ID ${data[i]['token_id']} at ${data[i]['animation_original_url']}`)
+      //   continue
+      // }
+      // Skip super pink moon...
+      if (data[i]['asset_contract']['address'] === '0xfe21b0a8df3308c61cb13df57ae5962c567a668a' && data[i]['token_id'] === '310') {
+        log(`Skipped ${data[i]['name']}`)
+        continue
+      }
+
+      // Set frame color to green for creators
+      let color = new Color3(1, 1, 1)
+      if (data[i]['creator'] && data[i]['creator']['address']) {
+        if (data[i]['creator']['address'] === publicKey) {
+          if (isInCollection === false)
+            isInCollection = true
+          color = new Color3(0.5, 1, 0.5)
+        }
+      }
+
+      // Set NFT pieces
       let nft_url = `ethereum://${data[i]['asset_contract']['address']}/${data[i]['token_id']}`
       let entity = new Entity()
-      let nft = new NFTShape(
-        nft_url,
-        { color: new Color3(1, 1, 1) }
-      )
+      let nft = new NFTShape(nft_url, { color: color })
       entity.addComponent(
         new OnPointerDown((e) => {
           openNFTDialog(nft_url)
         })
       )
 
-      let point = [Math.cos(i * per_rotation) * split * 1.25 + split * 2 + 7,
-                   (i * per_rotation) / 25 + p * 4.5 + 2.5,
-                   Math.sin(i * per_rotation) * split * 1.25 - split - 5]
+      // Set next point
+      let point = [radius * Math.sin((per_rotation * i) * (Math.PI / 180)) + radius * 2,
+                   (i * Math.PI) / per_rotation + p * 4 + 2.5,
+                   radius * Math.cos((per_rotation * i) * (Math.PI / 180)) - radius]
 
-      let xsign = (point[0] > 42) ? -1 : 1
-      let zsign = (point[2] > 35) ? -1 : 1
-      let xdiff = Math.cos(i * per_rotation * xsign) * 3 * xsign
-      let zdiff = Math.sin(i * per_rotation * zsign) * 3 * zsign
-      path.push(new Vector3(point[0] - xdiff * xsign, point[1] - 2, point[2] - zdiff * zsign))
+      // Calculate difference for platform path
+      let xsign = (point[0] < 0 ) ? -1 : 1
+      let zsign = (point[2] > radius) ? -1 : 1
+      let xdiff = Math.sin((per_rotation * i) * (Math.PI / 180) * xsign) * 5 * xsign
+      let zdiff = Math.cos((per_rotation * i) * (Math.PI / 180) * zsign) * 5 * zsign
+
+      path.push(new Vector3(point[0] - xdiff * xsign,
+                            point[1] - 2,
+                            point[2] - zdiff * zsign))
 
       entity.addComponent(
         new Transform({
           position: new Vector3(point[0], point[1], point[2]),
-          rotation: Quaternion.Euler(0, i * per_rotation * 5.5 + 90, 0),
+          rotation: Quaternion.Euler(0, i * per_rotation, 0),
           scale: new Vector3(5, 5, 5),
         })
       )
       entity.addComponent(nft)
-      // entity.addComponent(new Billboard())
 
       nfts.push(entity)
     }
     offset = offset + split
+    fetching = false
+    p += 1
 
     log(`Loaded page ${p + 1}`)
-
-    if (p === pages)
-      showNFTs()
   } catch {
+    fetching = false
     error("Failed to fetch NFTs")
   }
 }
 
 const loader = new Entity()
 loader.addComponent(
-  new utils.Interval(1000, () => {
-    if (p < pages && done !== true)
+  new utils.Interval(100, () => {
+    if (p < pages && done !== true && fetching === false)
       loadNFTs()
-  })
-)
-
-// Floating platforms
-const platforms = new Entity()
-let totalPlatforms = 90
-let t = 0
-platforms.addComponent(
-  new utils.Interval(20000, () => {
-    if (t >= totalPlatforms) {
-      return
-    }
-
-    let box = new Entity()
-
-    // Give entity a shape and transform
-    box.addComponent(new BoxShape())
-    box.addComponent(new Transform({
-      scale: new Vector3(3, 0.1, 3),
-      position: path[0],  // new Vector3(75, 0.5, -20),
-      rotation: Quaternion.Euler(0, 45, 0)
-    }))
-
-    // Rotate entity
-    // box.addComponent(new utils.KeepRotatingComponent(Quaternion.Euler(0, 5.5, 0)))
-    // Move along the path
-    box.addComponent(new utils.FollowCurvedPathComponent(path, 1800, 60, true, true))
-
-    engine.addEntity(box)
-    t = t + 1
   })
 )
 
 // Add platforms and NFTs to engine
 engine.addEntity(platforms)
 engine.addEntity(loader)
-
-// add fireplace
-let fire = new Entity()
-fire.addComponent(new GLTFShape("models/Fireplace.glb"))
-fire.addComponent(new Transform({
-  position: new Vector3(48, 0.1, -24)
-}))
-
-// Add a smoke source that creates a smoke puff every 0.2 seconds
-fire.addComponent(new SmokeSource(0.2))
-engine.addEntity(fire)
-
-// ground
-let floor = new Entity()
-floor.addComponent(new GLTFShape("models/FloorBaseGrass.glb"))
-floor.addComponent(new Transform({
-  position: new Vector3(48, 0, -24),
-  scale:new Vector3(9.5, 0.1, 7.8)
-}))
-engine.addEntity(floor)
-
-// Initiate systems
-engine.addSystem(new ThrowSmoke())
-engine.addSystem(new SmokeSystem())
-
-// Create music
-const music = new Entity()
-music.addComponent(new Transform({
-  position: new Vector3(48, 0.1, -24)
-}))
-
-// Create AudioClip object, holding audio file
-const clip = new AudioClip("sounds/KidKoala-FenderBender.mp3")
-
-// Create AudioSource component, referencing `clip`
-const source = new AudioSource(clip)
-
-// Add AudioSource component to entity
-music.addComponent(source)
-
-// Play sound
-source.loop = true
-source.volume = 1
-source.playing = true
-
-engine.addEntity(music)

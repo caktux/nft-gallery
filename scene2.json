@@ -1,0 +1,72 @@
+{
+  "display": {
+    "title": "NFT gallery of caktux",
+    "favicon": "favicon_asset"
+  },
+  "contact": {
+    "name": "caktux",
+    "email": ""
+  },
+  "owner": "0x378BCce7235D53BBc3774BFf8559191F06E6818E",
+  "scene": {
+    "parcels": [
+      "-123,32",
+      "-122,32",
+      "-121,32",
+      "-120,32",
+      "-119,32",
+      "-123,31",
+      "-122,31",
+      "-121,31",
+      "-120,31",
+      "-119,31",
+      "-123,30",
+      "-122,30",
+      "-121,30",
+      "-120,30",
+      "-119,30",
+      "-123,29",
+      "-122,29",
+      "-121,29",
+      "-120,29",
+      "-119,29",
+      "-123,28",
+      "-122,28",
+      "-121,28",
+      "-120,28",
+      "-119,28"
+    ],
+    "base": "-123,32"
+  },
+  "communications": {
+    "type": "webrtc",
+    "signalling": "https://signalling-01.decentraland.org"
+  },
+  "policy": {
+    "contentRating": "E",
+    "fly": true,
+    "voiceEnabled": true,
+    "blacklist": []
+  },
+  "requiredPermissions": [
+    "ALLOW_TO_MOVE_PLAYER_INSIDE_SCENE"
+  ],
+  "main": "bin/game.js",
+  "tags": [],
+  "spawnPoints": [
+    {
+      "name": "spawn1",
+      "default": true,
+      "position": {
+        "x": [24, 36],
+        "y": 0,
+        "z": [-8, -12]
+      },
+      "cameraTarget": {
+        "x": 64,
+        "y": 1,
+        "z": -24
+      }
+    }
+  ]
+}
