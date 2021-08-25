@@ -335,7 +335,7 @@ async function loadNFTs() {
 
 const loader = new Entity()
 loader.addComponent(
-  new utils.Interval(100, () => {
+  new utils.Interval(1250, () => {
     if (p < pages && done !== true && fetching === false)
       loadNFTs()
   })
