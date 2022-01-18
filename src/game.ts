@@ -3,6 +3,7 @@ import { movePlayerTo } from '@decentraland/RestrictedActions'
 import { getUserPublicKey } from '@decentraland/Identity'
 import { getParcel } from '@decentraland/ParcelIdentity'
 
+// const nftsUrl = 'https://api.rarible.org/v0.1/items/byOwner?owner=ETHEREUM:0x378BCce7235D53BBc3774BFf8559191F06E6818E'
 const nftsUrl = 'https://api.opensea.io/api/v1/assets?' +
                 'owner=0x378BCce7235D53BBc3774BFf8559191F06E6818E&' +
                 'asset_contract_addresses=0x3b3ee1931dc30c1957379fac9aba94d1c48a5405&' + // Foundation
@@ -23,8 +24,8 @@ const nftsUrl = 'https://api.opensea.io/api/v1/assets?' +
                 'asset_contract_addresses=0xd1405914eed5c358c9d8ab150f83bf7ffb7939f7&' + // Mrs Ethereum
                 'asset_contract_addresses=0x1919f156157924389491002127049abd69a808b5&' + // Surrogates
                 'asset_contract_addresses=0x3725ca6034bcdbc3c9ada649d49df68527661175&' + // 1559
-                'asset_contract_addresses=0xabEFBc9fD2F806065b4f3C237d4b59D9A97Bcac7&' + // Zora
-                'order_by="sale_date"&order_direction="desc"&'
+                'asset_contract_addresses=0xabEFBc9fD2F806065b4f3C237d4b59D9A97Bcac7&' // Zora
+                // 'order_by=sale_date&order_direction=desc&'
 
 let nfts = []
 let data = []
@@ -239,7 +240,7 @@ async function loadNFTs() {
     if (offset_start > 0 && offset === 0)
       offset = offset_start
 
-    let response = await fetch(nftsUrl + `limit=${split}&offset=${offset}`)
+    let response = await fetch(`${nftsUrl}limit=${split}&offset=${offset}`)
     let json = await response.json()
 
     data = json['assets']
